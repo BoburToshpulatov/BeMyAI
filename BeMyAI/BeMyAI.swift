@@ -160,4 +160,3 @@ struct BeMyAI: View {
         speech.stop()
     }
 }
-

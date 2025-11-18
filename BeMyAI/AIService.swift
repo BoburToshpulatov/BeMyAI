@@ -7,6 +7,16 @@
 
 
 
+//
+//  AIService.swift
+//  BeMyAI
+//
+
+//
+//  AIService.swift
+//  BeMyAI
+//
+
 import Foundation
 import UIKit
 
@@ -29,23 +39,24 @@ enum AIServiceError: LocalizedError {
 class AIService {
     static let shared = AIService()
     
-
+    // ⚠️ Keep your key secret!
     private let apiKey = "API-KEY"
 
     func analyzeImage(_ image: UIImage) async throws -> String {
+        // 1️⃣ Convert image to JPEG and Base64
         guard let jpegData = image.jpegData(compressionQuality: 0.6) else {
             throw AIServiceError.encodingError
         }
         let base64 = jpegData.base64EncodedString()
         
-       
+        // 2️⃣ Build the request
         let url = URL(string: "https://api.openai.com/v1/chat/completions")!
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.addValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
         
-        
+        // ✅ Correct image_url object format
         let body: [String: Any] = [
             "model": "gpt-4o-mini",
             "messages": [
@@ -62,7 +73,7 @@ class AIService {
         
         request.httpBody = try JSONSerialization.data(withJSONObject: body, options: [])
         
-       
+        // 3️⃣ Send the request
         do {
             let (data, response) = try await URLSession.shared.data(for: request)
             
@@ -85,7 +96,7 @@ class AIService {
     }
 }
 
-
+// MARK: - Response model
 struct OpenAIResponse: Codable {
     struct Choice: Codable {
         struct Message: Codable {
