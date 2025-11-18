@@ -1,5 +1,13 @@
+//
+//  BeMyAI 2.swift
+//  BeMyAI
+//
+//  Created by Bobur Toshpulatov on 17/11/25.
+//
+
 import SwiftUI
 import AVFoundation
+import Combine
 
 struct BeMyAI: View {
     @StateObject private var camera = CameraController()
@@ -8,7 +16,9 @@ struct BeMyAI: View {
     @State private var showFlash = false
     @State private var aiText: String = ""
     @State private var loading = false
-    @State private var isMuted = true   // default muted
+
+    // Default: unmuted -> start reading automatically when aiText is set.
+    @State private var isMuted = false
 
     var body: some View {
         ZStack {
@@ -19,28 +29,31 @@ struct BeMyAI: View {
                 Color.white.opacity(0.85).edgesIgnoringSafeArea(.all)
             }
 
-            
+            // 🔊 Speaker button — stable position, fixed size, no movement
             VStack {
                 HStack {
                     Spacer()
                     Button(action: toggleSpeech) {
                         Image(systemName: isMuted ? "speaker.slash.fill" : "speaker.wave.2.fill")
-                            .font(.system(size: 28))
-                            .padding(14)
-                            .background(.ultraThinMaterial)
-                            .clipShape(Circle())
-                            .shadow(radius: 4)
+                            .font(.system(size: 30))
+                            .foregroundColor(.accentColor)
+                            .frame(width: 60, height: 60) // FIXED → NO MOVEMENT
+                            .background(
+                                Circle().fill(Color.white)
+                            )
+                            .shadow(color: .black.opacity(0.25), radius: 6, x: 0, y: 3)
                     }
                     .padding(.trailing, 20)
-                    .padding(.top, 10)
+                    .padding(.top, 30)   // moved higher so it never goes behind text
                 }
                 Spacer()
             }
+            .allowsHitTesting(true)
 
             VStack {
                 Spacer()
 
-                // AI overlay
+                // AI overlay (floating card)
                 if !aiText.isEmpty || loading {
                     VStack(spacing: 12) {
                         HStack {
@@ -48,7 +61,7 @@ struct BeMyAI: View {
                             Button(action: closeMessage) {
                                 Image(systemName: "xmark.circle.fill")
                                     .font(.system(size: 22))
-                                    .foregroundColor(.white.opacity(0.8))
+                                    .foregroundColor(.white.opacity(0.85))
                             }
                         }
 
@@ -63,41 +76,30 @@ struct BeMyAI: View {
                                 .font(.system(size: 17))
                                 .foregroundColor(.white)
                                 .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.bottom, 2)
                         }
-                        .frame(maxHeight: 250)
+                        .frame(maxHeight: 260)
                     }
                     .padding(16)
                     .background(
-                        RoundedRectangle(cornerRadius: 24)
+                        RoundedRectangle(cornerRadius: 22, style: .continuous)
                             .fill(.ultraThinMaterial)
-                            .shadow(color: .black.opacity(0.25), radius: 10, x: 0, y: 5)
+                            .shadow(color: .black.opacity(0.25), radius: 10, x: 0, y: 6)
                     )
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 10)
+                    .padding(.horizontal, 18)
                 }
 
-                // Take picture button
-                HStack(spacing: 16) {
-                    Button(action: takePicture) {
-                        Text("Take picture")
-                            .font(.system(size: 20, weight: .semibold))
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity, minHeight: 55)
-                            .background(Color.accentColor)
-                            .cornerRadius(14)
-                    }
-
-                    Button(action: { }) {
-                        Text("History")
-                            .font(.system(size: 20, weight: .semibold))
-                            .foregroundColor(.primary)
-                            .frame(maxWidth: .infinity, minHeight: 55)
-                            .background(.ultraThinMaterial)
-                            .cornerRadius(14)
-                    }
+                // 📸 Take Picture button — full width
+                Button(action: takePicture) {
+                    Text("Take picture")
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity, minHeight: 55)
+                        .background(Color.accentColor)
+                        .cornerRadius(14)
                 }
                 .padding(.horizontal, 24)
-                .padding(.bottom, 25)
+                .padding(.bottom, 24)
             }
         }
         .onAppear {
@@ -105,9 +107,15 @@ struct BeMyAI: View {
                 Task { await analyze(img) }
             }
         }
+        .onChange(of: aiText) { newText in
+            guard !newText.isEmpty else { return }
+            if !isMuted {
+                speech.speak(text: newText)
+            }
+        }
     }
 
-
+    // MARK: - Functions
 
     func takePicture() {
         showFlash = true
@@ -116,25 +124,24 @@ struct BeMyAI: View {
     }
 
     func analyze(_ image: UIImage) async {
-        loading = true
-        aiText = ""
+        await MainActor.run {
+            loading = true
+            aiText = ""
+        }
 
         do {
             let result = try await AIService.shared.analyzeImage(image)
-            aiText = result
-            loading = false
-
-          
-            if !isMuted {
-                speech.speak(text: result)
+            await MainActor.run {
+                loading = false
+                aiText = result
             }
-
         } catch {
-            aiText = "Error: \(error.localizedDescription)"
-            loading = false
+            await MainActor.run {
+                loading = false
+                aiText = "Error: \(error.localizedDescription)"
+            }
         }
     }
-
 
     func toggleSpeech() {
         isMuted.toggle()
@@ -153,3 +160,4 @@ struct BeMyAI: View {
         speech.stop()
     }
 }
+

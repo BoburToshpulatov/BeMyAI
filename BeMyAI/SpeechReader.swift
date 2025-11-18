@@ -1,14 +1,18 @@
-// SpeechReader.swift
+//
+//  SpeechReader.swift
+//  BeMyAI
+//
+
 import Foundation
 import AVFoundation
 import Combine
 
-/// A simple speech helper that can be observed from SwiftUI.
-/// Matches the API used in BeMyAI.swift: `speak(text:)` and `stop()`.
+// -------------------------------
+// SpeechReader implementation
+// -------------------------------
 final class SpeechReader: NSObject, ObservableObject {
     private let synthesizer = AVSpeechSynthesizer()
 
-    /// Optional published state if you want to bind to UI later.
     @Published var isSpeaking: Bool = false
 
     override init() {
@@ -16,17 +20,23 @@ final class SpeechReader: NSObject, ObservableObject {
         synthesizer.delegate = self
     }
 
-    /// Speak the provided text from the beginning.
-    /// Calls stop() first to ensure we restart from the start.
+    /// Always stops any current speech and begins speaking the provided text from the start.
     func speak(text: String) {
-        stop() // ensure fresh start
+        // Ensure audio session is configured for playback and speaker output
+        configureAudioSession()
+
+        // stop any current speech to avoid overlapping
+        stop()
+
         guard !text.isEmpty else { return }
 
         let utterance = AVSpeechUtterance(string: text)
-        // Tweak voice, rate, pitch to taste:
-        utterance.voice = AVSpeechSynthesisVoice(language: Locale.current.languageCode ?? "en-US")
-        utterance.rate = 0.48
+        // Use the device language if available; fallback to en-US
+        let lang = Locale.current.language.languageCode?.identifier ?? "en-US"
+        utterance.voice = AVSpeechSynthesisVoice(language: lang)
+        utterance.rate = 0.52
         utterance.pitchMultiplier = 1.0
+        utterance.preUtteranceDelay = 0.02
 
         synthesizer.speak(utterance)
         DispatchQueue.main.async { [weak self] in
@@ -34,7 +44,7 @@ final class SpeechReader: NSObject, ObservableObject {
         }
     }
 
-    /// Immediately stop speaking.
+    /// Immediately stops speaking.
     func stop() {
         if synthesizer.isSpeaking || synthesizer.isPaused {
             synthesizer.stopSpeaking(at: .immediate)
@@ -43,9 +53,19 @@ final class SpeechReader: NSObject, ObservableObject {
             self?.isSpeaking = false
         }
     }
+
+    /// Configure AVAudioSession to use device speaker by default
+    private func configureAudioSession() {
+        do {
+            let session = AVAudioSession.sharedInstance()
+            try session.setCategory(.playback, mode: .default, options: [.defaultToSpeaker])
+            try session.setActive(true, options: .notifyOthersOnDeactivation)
+        } catch {
+            print("Audio session setup error: \(error)")
+        }
+    }
 }
 
-// MARK: - AVSpeechSynthesizerDelegate
 extension SpeechReader: AVSpeechSynthesizerDelegate {
     func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
         DispatchQueue.main.async { [weak self] in

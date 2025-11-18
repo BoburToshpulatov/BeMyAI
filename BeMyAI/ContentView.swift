@@ -11,16 +11,16 @@ struct ContentView: View {
     var body: some View {
         TabView(){
             Tab("Get Support", systemImage: "video"){
-                Text("Coming Soon")
+                ComingSoonView()
             }
             Tab("Be My AI", systemImage: "camera"){
                 BeMyAI()
             }
             Tab("Community", systemImage: "person.3"){
-                Text("Coming Soon")
+                ComingSoonView()
             }
             Tab("Settings", systemImage: "gearshape"){
-                Text("Coming Soon")
+                ComingSoonView()
             }
         }
         

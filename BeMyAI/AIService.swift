@@ -6,6 +6,7 @@
 //
 
 
+
 import Foundation
 import UIKit
 
@@ -28,17 +29,16 @@ enum AIServiceError: LocalizedError {
 class AIService {
     static let shared = AIService()
     
-    
-    private let apiKey = "YOUR-API-KEY"
+
+    private let apiKey = "API-KEY"
 
     func analyzeImage(_ image: UIImage) async throws -> String {
-       
         guard let jpegData = image.jpegData(compressionQuality: 0.6) else {
             throw AIServiceError.encodingError
         }
         let base64 = jpegData.base64EncodedString()
         
-        
+       
         let url = URL(string: "https://api.openai.com/v1/chat/completions")!
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -52,7 +52,7 @@ class AIService {
                 [
                     "role": "user",
                     "content": [
-                        ["type": "text", "text": "Give a medium size, clear, user-friendly description of this image."],
+                        ["type": "text", "text": "Give a medium size, clear, user-friendly description of this image. The details are for blind people so take this into account"],
                         ["type": "image_url", "image_url": ["url": "data:image/jpeg;base64,\(base64)"]]
                     ]
                 ]
@@ -62,7 +62,7 @@ class AIService {
         
         request.httpBody = try JSONSerialization.data(withJSONObject: body, options: [])
         
-   
+       
         do {
             let (data, response) = try await URLSession.shared.data(for: request)
             
@@ -84,6 +84,7 @@ class AIService {
         }
     }
 }
+
 
 struct OpenAIResponse: Codable {
     struct Choice: Codable {
